@@ -9,18 +9,30 @@ import { kitFor } from '../src/engine/lang';
 import { audioKey } from '../src/engine/audioKey';
 import { SETTINGS_TEST_PHRASE } from '../src/engine/speech';
 
-const out = new Map<string, { text: string; lang: string }>();
-for (const c of courses.filter((c) => c.available)) {
+// Recording is slow (a couple of clips a minute), so order matters: the most-heard lines of every language
+// come first, taking turns between languages. Lessons, then conversations, then the Handbook.
+type Item = { key: string; text: string; lang: string };
+const tiers: Item[][][] = [[], [], []]; // tier -> language -> items
+const langs = courses.filter((c) => c.available);
+langs.forEach((c, li) => {
   const k = kitFor(c.languageId);
-  const add = (script: string | undefined, roman: string) => {
+  const into = (tier: number) => (script: string | undefined, roman: string) => {
     const g = script ?? k.toNative(roman);
-    out.set(audioKey(g), { text: g, lang: c.languageId });
+    ((tiers[tier][li] ??= [])).push({ key: audioKey(g), text: g, lang: c.languageId });
   };
-  for (const p of allPhrases(c)) add(p.script, p.text);
-  for (const p of handbookPhrases(c)) add(p.script, p.text);
-  for (const d of c.dialogues ?? []) for (const l of d.lines) add(undefined, l.pa);
-  if (c.voiceSample) add(c.voiceSample.script, c.voiceSample.text);
-  if (c.languageId === 'pa') add(undefined, SETTINGS_TEST_PHRASE);
+  if (c.voiceSample) into(0)(c.voiceSample.script, c.voiceSample.text);
+  if (c.languageId === 'pa') into(0)(undefined, SETTINGS_TEST_PHRASE);
+  for (const p of allPhrases(c)) into(0)(p.script, p.text);
+  for (const d of c.dialogues ?? []) for (const l of d.lines) into(1)(undefined, l.pa);
+  for (const p of handbookPhrases(c)) into(2)(p.script, p.text);
+});
+const out = new Map<string, { text: string; lang: string }>();
+for (const tier of tiers) {
+  const n = Math.max(0, ...tier.map((l) => l?.length ?? 0));
+  for (let i = 0; i < n; i++) for (const l of tier) {
+    const it = l?.[i];
+    if (it && !out.has(it.key)) out.set(it.key, { text: it.text, lang: it.lang });
+  }
 }
 const list = [...out].map(([key, v]) => ({ key, ...v }));
 writeFileSync(new URL('./texts.json', import.meta.url), JSON.stringify(list, null, 1));
