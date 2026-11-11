@@ -42,7 +42,7 @@ export function Handbook({ course, onPractise }: { course: Course; onPractise: (
 
       {!section && (
         <>
-          <input className="search" placeholder="Search English, Hindi or Punjabi…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="search" placeholder={`Search English, Hindi or ${course.languageName}…`} value={q} onChange={(e) => setQ(e.target.value)} />
           {results ? (
             <section className="card">
               {results.length === 0 && <p className="muted">Nothing found.</p>}
@@ -82,7 +82,7 @@ export function Handbook({ course, onPractise }: { course: Course; onPractise: (
               <div className="hb-head">
                 <span>English</span>
                 <span>Hindi</span>
-                <span>Punjabi</span>
+                <span>{course.languageName}</span>
               </div>
               {t.rows.map((r, ri) => (
                 <Row key={ri} row={r} id={`${section.id}-${ti}-${ri}`} onMic={setMic} />

@@ -108,7 +108,7 @@ export function Lesson({ title, exercises, onAnswer, onDone, onQuit }: Props) {
       ) : verdict ? (
         <footer className={`feedback ${verdict}`}>
           <div className="feedback-text">
-            <strong>{verdict === 'correct' ? pick(['Nice!', 'Bahut vadhiya!', 'Correct!', 'Shabaash!']) : verdict === 'typo' ? 'Almost! Watch the spelling.' : 'Not quite.'}</strong>
+            <strong>{verdict === 'correct' ? pick(['Nice!', 'Correct!', ...praise()]) : verdict === 'typo' ? 'Almost! Watch the spelling.' : 'Not quite.'}</strong>
             {phrase && verdict !== 'correct' && (
               <span>
                 Answer: <b>{ex.kind === 'type-en' || ex.kind === 'choose-en' || ex.kind === 'listen' ? phrase.en : phrase.text}</b>
@@ -130,6 +130,8 @@ export function Lesson({ title, exercises, onAnswer, onDone, onQuit }: Props) {
 }
 
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+const lname = () => getCourse(getState().language).languageName;
+const praise = () => getCourse(getState().language).praise ?? ['Great!'];
 
 function reshuffle(ex: Exercise): Exercise {
   if ('options' in ex) return { ...ex, options: shuffle(ex.options) };
@@ -235,9 +237,9 @@ function Choice({ ex, locked, onCheck }: { ex: Extract<Exercise, { options: stri
         {ex.kind === 'listen'
           ? 'What did you hear?'
           : ex.kind === 'choose-pa'
-            ? 'How do you say this in Punjabi?'
+            ? `How do you say this in ${lname()}?`
             : ex.kind === 'hindi'
-              ? 'You know it in Hindi. Now say it in Punjabi!'
+              ? `You know it in Hindi. Now say it in ${lname()}!`
               : 'What does this mean?'}
       </h3>
       <div className="prompt">
@@ -290,7 +292,7 @@ function Build({ ex, locked, onCheck }: { ex: Extract<Exercise, { kind: 'build' 
   };
   return (
     <div className="exercise">
-      <h3>Build this in Punjabi</h3>
+      <h3>Build this in {lname()}</h3>
       <div className="prompt">
         <span className="big">{ex.phrase.en}</span>
       </div>
@@ -333,7 +335,7 @@ function TypeIt({ ex, locked, onCheck }: { ex: Extract<Exercise, { kind: 'type-p
   };
   return (
     <div className="exercise">
-      <h3>{toPa ? 'Write this in Punjabi (romanized)' : 'Write this in English'}</h3>
+      <h3>{toPa ? `Write this in ${lname()} (romanized)` : 'Write this in English'}</h3>
       <div className="prompt">
         {!toPa && <SpeakButton phrase={ex.phrase} size="sm" />}
         <span className="big">{toPa ? ex.phrase.en : ex.phrase.text}</span>
@@ -350,7 +352,7 @@ function TypeIt({ ex, locked, onCheck }: { ex: Extract<Exercise, { kind: 'type-p
           value={val}
           disabled={locked}
           onChange={(e) => setVal(e.target.value)}
-          placeholder={toPa ? 'Type in Punjabi…' : 'Type in English…'}
+          placeholder={toPa ? `Type in ${lname()}…` : 'Type in English…'}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}

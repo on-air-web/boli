@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { listenOnce, PASS, recognitionSupported, scoreSpeech, stopListening, type Score } from '../engine/listen';
 import { stopSpeaking } from '../engine/speech';
+import { getCourse } from '../languages';
+import { getState } from '../engine/progress';
 
 /**
  * Tap the mic, say the phrase, get feedback word by word.
@@ -77,7 +79,7 @@ export function SpeakCheck({ accepted, onResult, compact = false }: { accepted: 
         {state === 'done' && result && (
           <>
             <div className={`score ${pass ? 'good' : result.score >= 50 ? 'ok' : 'weak'}`}>
-              {result.score}% {pass ? pick(['Bahut vadhiya! 🎉', 'Shabaash! 👏', 'Sounds right! ✅']) : result.score >= 50 ? 'Almost there' : 'Try again'}
+              {result.score}% {pass ? pick([...(getCourse(getState().language).praise ?? []).map((p, i) => `${p} ${['🎉', '👏', '🙌'][i % 3]}`), 'Sounds right! ✅']) : result.score >= 50 ? 'Almost there' : 'Try again'}
             </div>
             <div className="said-words">
               {result.words.map((w, i) => (

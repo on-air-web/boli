@@ -10,9 +10,9 @@ export type HindiNote =
   | { kind: 'same'; hi: string; line: string };
 
 const LEADS = [
-  'Hindi ➜ Punjabi',
+  'Hindi ➜ {L}',
   'If you know Hindi, just swap:',
-  'Where Hindi says one thing, Punjabi says another:',
+  'Where Hindi says one thing, {L} says another:',
   'Your Hindi helps here:',
   'Spot the difference from Hindi:',
 ];
@@ -43,7 +43,7 @@ export function hindiNote(p: Phrase, course: Course): HindiNote | null {
   const h = hash(p.id);
   if (pairs.length) {
     const pattern = course.hiPatterns?.find((pt) => pairs.some(([pa]) => pa.toLowerCase() === pt.when))?.text;
-    return { kind: 'pairs', pairs, lead: LEADS[h % LEADS.length], hi: p.hi, pattern };
+    return { kind: 'pairs', pairs, lead: LEADS[h % LEADS.length].replace('{L}', course.languageName), hi: p.hi, pattern };
   }
   // Mention "same as Hindi" only now and then, so it stays a nice surprise.
   if (normalize(p.hi) === normalize(p.text) && h % 2 === 0) return { kind: 'same', hi: p.hi, line: SAME[h % SAME.length] };

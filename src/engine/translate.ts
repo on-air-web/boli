@@ -2,14 +2,14 @@ import type { Course, Phrase } from '../languages/types';
 import { allPhrases } from './exercises';
 import { handbookPhrases } from './handbookItems';
 import { normalize, looseKey, levenshtein } from './text';
-import { hasGurmukhi, romanToGurmukhi, toRoman } from './script';
+import { kitFor } from './lang';
 
 export type Direction = 'en-pa' | 'pa-en';
 
 export interface Translation {
   source: 'lessons' | 'online';
-  text: string; // English or romanized Punjabi
-  script?: string; // Gurmukhi if Punjabi
+  text: string; // English or romanized target language
+  script?: string; // native script (never shown; used for the voice)
   phrase?: Phrase;
 }
 
@@ -32,23 +32,25 @@ export function searchLessons(query: string, dir: Direction, course: Course): Ph
         if (d <= Math.max(2, target.length / 5)) score = Math.min(score, 2 + d);
       }
     }
-    if (dir === 'pa-en' && p.script && hasGurmukhi(query) && p.script.replace(/[?!.,]/g, '').trim() === query.replace(/[?!.,]/g, '').trim()) score = 0;
+    if (dir === 'pa-en' && p.script && kitFor(course.languageId).hasNative(query) && p.script.replace(/[?!.,]/g, '').trim() === query.replace(/[?!.,]/g, '').trim()) score = 0;
     return { p, score };
   });
   return scored.filter((s) => s.score < Infinity).sort((a, b) => a.score - b.score).slice(0, 3).map((s) => s.p);
 }
 
 /** Online translation through Google Translate's public endpoint. Needs internet. */
-export async function translateOnline(query: string, dir: Direction): Promise<Translation | null> {
-  const [sl, tl] = dir === 'en-pa' ? ['en', 'pa'] : ['pa', 'en'];
-  // Romanized Punjabi is converted to Gurmukhi first: the translator understands that far better.
-  const q = dir === 'pa-en' && !hasGurmukhi(query) ? romanToGurmukhi(query) : query;
+// Direction names say "pa" but mean "the course language" (Punjabi, Marathi, Bengali...).
+export async function translateOnline(query: string, dir: Direction, languageId = 'pa'): Promise<Translation | null> {
+  const k = kitFor(languageId);
+  const [sl, tl] = dir === 'en-pa' ? ['en', k.code] : [k.code, 'en'];
+  // Romanized text is converted to native script first: the translator understands that far better.
+  const q = dir === 'pa-en' && !k.hasNative(query) ? k.toNative(query) : query;
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(q)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Translation service returned ${res.status}`);
   const data = await res.json();
   const out = (data?.[0] ?? []).map((seg: unknown[]) => seg?.[0] ?? '').join('').trim();
   if (!out) return null;
-  if (dir === 'en-pa') return { source: 'online', text: toRoman(out), script: out };
+  if (dir === 'en-pa') return { source: 'online', text: k.romanize(out), script: out };
   return { source: 'online', text: out };
 }

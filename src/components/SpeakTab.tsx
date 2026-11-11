@@ -4,7 +4,7 @@ import type { Dialogue } from '../languages/handbook-types';
 import { allPhrases } from '../engine/exercises';
 import { handbookPhrases, isSentence } from '../engine/handbookItems';
 import { PASS, recognitionSupported, type Score } from '../engine/listen';
-import { speakPhrase, speakPunjabi, stopSpeaking } from '../engine/speech';
+import { speakPhrase, speakText, stopSpeaking } from '../engine/speech';
 import { actions, langProgress } from '../engine/progress';
 import { sample } from '../engine/text';
 import { SpeakButton } from './Speak';
@@ -18,14 +18,14 @@ export function SpeakTab({ course, start }: { course: Course; start?: View }) {
   const home = () => setView({ kind: 'home' });
 
   if (view.kind === 'drill') return <Drill title={view.title} items={view.items} onExit={home} languageId={course.languageId} />;
-  if (view.kind === 'convo') return <Conversation dialogue={view.dialogue} onExit={home} languageId={course.languageId} />;
+  if (view.kind === 'convo') return <Conversation dialogue={view.dialogue} onExit={home} languageId={course.languageId} languageName={course.languageName} />;
 
   const lp = langProgress(course.languageId);
   const learned = allPhrases(course).filter((p) => lp.phrases[p.id]);
   const sets: { title: string; emoji: string; desc: string; items: () => Phrase[] }[] = [
     ...(learned.length >= 3 ? [{ title: 'Phrases you learned', emoji: '⭐', desc: `${learned.length} phrases from your lessons`, items: () => sample(learned, 8) }] : []),
     { title: 'Everyday sentences', emoji: '📝', desc: 'Chatting, plans, work, family', items: () => sample(handbookPhrases(course, ['sentences']).filter(isSentence), 8) },
-    { title: 'Punjabi + English', emoji: '🔀', desc: 'How people really talk', items: () => sample(handbookPhrases(course, ['english-mix']), 8) },
+    { title: `${course.languageName} + English`, emoji: '🔀', desc: 'How people really talk', items: () => sample(handbookPhrases(course, ['english-mix']), 8) },
     { title: 'Social phrases and slang', emoji: '🎉', desc: 'Greetings, reactions, expressions', items: () => sample(handbookPhrases(course, ['social', 'slang']), 8) },
     { title: 'Numbers and time', emoji: '🔢', desc: 'Counting and telling the time', items: () => sample(handbookPhrases(course, ['numbers', 'time']), 8) },
     { title: 'Getting around', emoji: '🧭', desc: 'Directions, food, health', items: () => sample(handbookPhrases(course, ['places', 'food', 'body', 'weather']).filter(isSentence), 8) },
@@ -68,7 +68,7 @@ export function SpeakTab({ course, start }: { course: Course; start?: View }) {
         </div>
       </section>
       <p className="muted small tip-box">
-        Tips: speak at a normal pace, in a quiet place. Punjabi spellings vary, so the checker listens for sounds, not spelling. English words like "busy" or "call" are fine to say in English.
+        Tips: speak at a normal pace, in a quiet place. {course.languageName} spellings vary, so the checker listens for sounds, not spelling. English words like "busy" or "call" are fine to say in English.
       </p>
     </div>
   );
@@ -162,7 +162,7 @@ interface Turn {
   score?: number;
 }
 
-function Conversation({ dialogue, onExit, languageId }: { dialogue: Dialogue; onExit: () => void; languageId: string }) {
+function Conversation({ dialogue, onExit, languageId, languageName }: { dialogue: Dialogue; onExit: () => void; languageId: string; languageName: string }) {
   const [step, setStep] = useState(0);
   const [done, setDone] = useState<Turn[]>([]);
   const [hint, setHint] = useState(false);
@@ -177,7 +177,7 @@ function Conversation({ dialogue, onExit, languageId }: { dialogue: Dialogue; on
     if (!line || line.who !== 'A') return;
     let cancelled = false;
     const t = setTimeout(async () => {
-      await speakPunjabi(undefined, line.pa);
+      await speakText(undefined, line.pa);
       if (cancelled) return;
       setTimeout(() => {
         if (cancelled) return;
@@ -251,7 +251,7 @@ function Conversation({ dialogue, onExit, languageId }: { dialogue: Dialogue; on
               </p>
             ) : (
               <button className="link" onClick={() => setHint(true)}>
-                Show me the Punjabi
+                Show me the {languageName}
               </button>
             )}
             <SpeakCheck accepted={accepted} onResult={onResult} />

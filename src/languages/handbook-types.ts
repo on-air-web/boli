@@ -1,3 +1,4 @@
+// Field name `pa` is historical: it holds the course language (Punjabi, Marathi, Bengali...) in Roman letters.
 export interface HbRow {
   en: string;
   hi: string;
@@ -34,7 +35,7 @@ export interface HbSection {
   practice?: { en: string; pa: string }[];
 }
 
-/** Compact table rows: "English | Hindi | Punjabi | optional note" */
+/** Compact table rows: "English | Hindi | target language | optional note" */
 export function rows(src: string): HbRow[] {
   return src
     .trim()

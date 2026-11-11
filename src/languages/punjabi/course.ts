@@ -132,6 +132,9 @@ export const punjabi: Course = {
   nativeName: 'Punjabi',
   flag: '🌾',
   available: true,
+  praise: ['Bahut vadhiya!', 'Shabaash!', 'Balle balle!'],
+  voiceSample: { text: 'Sat Sri Akal ji, ki haal aa? Main Punjabi sikh reha haan.' },
+  translateExample: 'Ki haal aa?',
   handbook,
   dialogues,
   tips: [

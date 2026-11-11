@@ -1,17 +1,33 @@
 import { actions, useAppState } from '../engine/progress';
 import { useState } from 'react';
-import { lastVoiceUsed, SETTINGS_TEST_PHRASE, speakPunjabi, voiceInfo } from '../engine/speech';
+import { lastVoiceUsed, speakText, voiceInfo } from '../engine/speech';
+import { courses, getCourse } from '../languages';
+import { kit } from '../engine/lang';
 
 export function Settings() {
   const [used, setUsed] = useState('');
   const s = useAppState();
   const st = s.settings;
+  const course = getCourse(s.language);
+  const name = course.languageName;
+  const native = st.recognitionLang === 'hi-IN' || st.recognitionLang === 'en-IN' ? st.recognitionLang : kit().bcp47;
   return (
     <div className="page">
       <header className="topbar">
         <h1>Settings</h1>
       </header>
       <section className="card settings">
+        <label className="row">
+          <span>Language</span>
+          <select value={s.language} onChange={(e) => actions.setLanguage(e.target.value)}>
+            {courses.map((c) => (
+              <option key={c.languageId} value={c.languageId} disabled={!c.available}>
+                {c.flag} {c.languageName}
+                {c.available ? '' : ' (coming soon)'}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="row">
           <span>Sound</span>
           <input type="checkbox" checked={st.sound} onChange={(e) => actions.updateSettings({ sound: e.target.checked })} />
@@ -21,7 +37,7 @@ export function Settings() {
           <input type="checkbox" checked={st.autoplay} onChange={(e) => actions.updateSettings({ autoplay: e.target.checked })} />
         </label>
         <label className="row">
-          <span>Use online Punjabi voice (best quality)</span>
+          <span>Use online {name} voice (best quality)</span>
           <input type="checkbox" checked={st.onlineVoice} onChange={(e) => actions.updateSettings({ onlineVoice: e.target.checked })} />
         </label>
         <label className="row">
@@ -31,7 +47,7 @@ export function Settings() {
         <button
           className="btn btn-secondary"
           onClick={async () => {
-            await speakPunjabi(undefined, SETTINGS_TEST_PHRASE);
+            await speakText(course.voiceSample?.script, course.voiceSample?.text ?? 'Hello');
             setUsed(lastVoiceUsed());
           }}
         >
@@ -44,9 +60,9 @@ export function Settings() {
         </label>
         <label className="row">
           <span>Speech checking listens in</span>
-          <select value={st.recognitionLang} onChange={(e) => actions.updateSettings({ recognitionLang: e.target.value })}>
-            <option value="pa-IN">Punjabi (best)</option>
-            <option value="hi-IN">Hindi (if Punjabi isn't available)</option>
+          <select value={native} onChange={(e) => actions.updateSettings({ recognitionLang: e.target.value })}>
+            <option value={kit().bcp47}>{name} (best)</option>
+            <option value="hi-IN">Hindi (if {name} isn't available)</option>
             <option value="en-IN">English (India)</option>
           </select>
         </label>

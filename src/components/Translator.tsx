@@ -21,7 +21,7 @@ export function Translator({ course }: { course: Course }) {
     setMatches(searchLessons(q, dir, course));
     setBusy(true);
     try {
-      setOnline(await translateOnline(q.trim(), dir));
+      setOnline(await translateOnline(q.trim(), dir, course.languageId));
     } catch {
       setError(navigator.onLine ? "Couldn't reach the translation service right now." : "You're offline. Showing matches from your lessons only.");
     } finally {
@@ -43,16 +43,16 @@ export function Translator({ course }: { course: Course }) {
       </header>
       <form className="card translator" onSubmit={go}>
         <div className="dir">
-          <span>{dir === 'en-pa' ? 'English' : 'Punjabi'}</span>
+          <span>{dir === 'en-pa' ? 'English' : course.languageName}</span>
           <button type="button" className="swap" onClick={swap} aria-label="Swap languages">
             ⇄
           </button>
-          <span>{dir === 'en-pa' ? 'Punjabi' : 'English'}</span>
+          <span>{dir === 'en-pa' ? course.languageName : 'English'}</span>
         </div>
         <textarea
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={dir === 'en-pa' ? 'Type in English, e.g. "Where is the market?"' : 'Type Punjabi in English letters, e.g. "Ki haal aa?"'}
+          placeholder={dir === 'en-pa' ? 'Type in English, e.g. "Where is the market?"' : `Type ${course.languageName} in English letters, e.g. "${course.translateExample ?? 'Ki haal aa?'}"`}
           rows={3}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) go(e);
@@ -73,7 +73,7 @@ export function Translator({ course }: { course: Course }) {
             </div>
           </div>
           {dir === 'en-pa' && <p className="muted small">Spelling is converted automatically, so it may differ slightly from the lessons.</p>}
-          {dir === 'pa-en' && <p className="muted small">Romanized Punjabi is tricky for online translators. Check the matches from your lessons and the Handbook too.</p>}
+          {dir === 'pa-en' && <p className="muted small">Romanized {course.languageName} is tricky for online translators. Check the matches from your lessons and the Handbook too.</p>}
         </section>
       )}
       {error && <p className="notice">{error}</p>}

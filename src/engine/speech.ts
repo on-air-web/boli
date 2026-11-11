@@ -1,20 +1,22 @@
 import type { Phrase } from '../languages/types';
 import { getState } from './progress';
-import { gurmukhiToDevanagari, romanToGurmukhi } from './script';
 import { audioKey } from './audioKey';
+import { kit } from './lang';
+import { getCourse } from '../languages';
 
 export const SETTINGS_TEST_PHRASE = 'Sat Sri Akal ji, ki haal aa? Main Punjabi sikh reha haan.';
 
 // Pre-recorded natural-voice clips (made by scripts/gen-audio.mjs). Loaded once; missing = none yet.
+// Keys are made from native script, so Punjabi, Marathi and Bengali clips never collide.
 let recorded: Set<string> | null = null;
-let recordedVoice = '';
+let recordedVoices: Record<string, string> = {};
 const manifestReady =
   typeof fetch !== 'undefined'
     ? fetch('./audio/manifest.json')
         .then((r) => (r.ok ? r.json() : { keys: [] }))
-        .then((m: { voice?: string; keys: string[] }) => {
+        .then((m: { voice?: string; voices?: Record<string, string>; keys: string[] }) => {
           recorded = new Set(m.keys);
-          recordedVoice = m.voice ?? '';
+          recordedVoices = m.voices ?? (m.voice ? { pa: m.voice } : {});
         })
         .catch(() => (recorded = new Set()))
     : Promise.resolve();
@@ -22,8 +24,9 @@ const manifestReady =
 export const recordedCount = () => recorded?.size ?? 0;
 
 // Text to speech, best option first:
-// 1. Online Punjabi voice (Google Translate audio) when online and allowed in settings
-// 2. A Punjabi voice installed on the device (pa-IN)
+// 0. A pre-recorded natural (neural) clip, if one was generated for this exact line
+// 1. Online voice for the course language (Google Translate audio) when online and allowed in settings
+// 2. A voice for the language installed on the device (pa-IN / mr-IN / bn-IN)
 // 3. A Hindi voice reading the phrase converted to Devanagari (very close sounds; available on iOS, Mac, Windows, Android)
 // (The romanized text is never read directly: an English-style voice would mispronounce it.)
 
@@ -99,32 +102,39 @@ function playUrl(url: string, rate: number, label: string): Promise<boolean> {
   });
 }
 
-/** Speak Punjabi text. `script` (Gurmukhi) gives the best pronunciation; `roman` is converted when missing. */
-export async function speakPunjabi(script: string | undefined, roman: string, rateOverride?: number) {
+/** Speak text in the course language (Punjabi, Marathi, Bengali). `script` (native script) gives the best
+ *  pronunciation; `roman` is converted when it is missing. The English letters are never read aloud. */
+export async function speakText(script: string | undefined, roman: string, rateOverride?: number) {
   const { sound, speechRate, onlineVoice } = getState().settings;
   if (!sound) return;
+  const k = kit();
+  const name = getCourse(k.id).languageName;
   const rate = rateOverride ?? speechRate;
-  // Never read the English letters aloud: that sounds like English. Always speak real Punjabi/Hindi script.
-  script = script ?? romanToGurmukhi(roman);
+  // Never read the English letters aloud: that sounds like English. Always speak real native/Hindi script.
+  script = script ?? k.toNative(roman);
   await manifestReady;
   const key = audioKey(script);
-  if (recorded?.has(key) && (await playUrl(`./audio/${key}.mp3`, rate, `Natural voice${recordedVoice ? ` (${recordedVoice.replace(/^pa-IN-|Neural$/g, '')})` : ''}`))) return;
+  const rv = recordedVoices[k.id] ?? '';
+  if (recorded?.has(key) && (await playUrl(`./audio/${key}.mp3`, rate, `Natural voice${rv ? ` (${rv.replace(/^[a-z]{2}-IN-|Neural$/g, '')})` : ''}`))) return;
   // The page sends no Referer (see index.html), which Google's voice endpoint requires.
-  const google = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pa&total=1&idx=0&textlen=${script.length}&q=${encodeURIComponent(script)}`;
-  if (onlineVoice && navigator.onLine && (await playUrl(google, rate, 'Online Punjabi voice'))) return;
+  const google = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${k.code}&total=1&idx=0&textlen=${script.length}&q=${encodeURIComponent(script)}`;
+  if (onlineVoice && navigator.onLine && (await playUrl(google, rate, `Online ${name} voice`))) return;
   refreshVoices();
-  const pa = findVoice('pa');
-  if (pa) {
-    lastVoice = `Device Punjabi voice (${pa.name})`;
-    return speakDevice(script, 'pa-IN', pa, rate);
+  const own = findVoice(k.code);
+  if (own) {
+    lastVoice = `Device ${name} voice (${own.name})`;
+    return speakDevice(script, k.bcp47, own, rate);
   }
-  // Hindi voices read Punjabi in Devanagari letters almost perfectly (same sounds, same alphabet order).
+  // Hindi voices read these languages in Devanagari letters very closely (same sounds, same alphabet order).
   const hi = findVoice('hi');
   lastVoice = hi ? `Device Hindi voice (${hi.name})` : 'Device Hindi voice';
-  return speakDevice(gurmukhiToDevanagari(script), 'hi-IN', hi, rate);
+  return speakDevice(k.toDeva(script), 'hi-IN', hi, rate);
 }
 
-export const speakPhrase = (p: Phrase, rate?: number) => speakPunjabi(p.script, p.text, rate);
+/** Older name, kept so existing call sites keep working. */
+export const speakPunjabi = speakText;
+
+export const speakPhrase = (p: Phrase, rate?: number) => speakText(p.script, p.text, rate);
 
 export function stopSpeaking() {
   synth?.cancel();
@@ -137,10 +147,12 @@ export function voiceInfo(): string {
   const s = getState().settings;
   const parts: string[] = [];
   if (recordedCount()) parts.push(`Natural voice for ${recordedCount()} lesson & handbook phrases`);
-  if (s.onlineVoice) parts.push('Online Punjabi voice when connected');
-  const pa = findVoice('pa');
+  const k = kit();
+  const name = getCourse(k.id).languageName;
+  if (s.onlineVoice) parts.push(`Online ${name} voice when connected`);
+  const own = findVoice(k.code);
   const hi = findVoice('hi');
-  if (pa) parts.push(`device Punjabi voice (${pa.name})`);
+  if (own) parts.push(`device ${name} voice (${own.name})`);
   else if (hi) parts.push(`device Hindi voice (${hi.name}) offline`);
   else parts.push('device default voice offline');
   return parts.join(', then ');

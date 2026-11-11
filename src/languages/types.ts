@@ -45,6 +45,12 @@ export interface Course {
   nativeName: string;
   flag: string;
   available: boolean;
+  /** Short cheers shown after a right answer, in the language (romanized) */
+  praise?: string[];
+  /** Played by "Test voice" in settings */
+  voiceSample?: { text: string; script?: string };
+  /** Placeholder example for the translator */
+  translateExample?: string;
   tips?: string[];
   /** Hindi → this language sound patterns, shown when the trigger word is first taught */
   hiPatterns?: { when: string; text: string }[];

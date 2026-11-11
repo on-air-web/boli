@@ -2,9 +2,8 @@
 // Recognition returns Gurmukhi (pa-IN), Devanagari (hi-IN) or Latin (en-IN). We turn everything into
 // romanized text and compare sounds, not spelling, so "kiwen"/"kiven" or English loanwords still match.
 
-import { romanToGurmukhi, romanizeGurmukhi, toRoman } from './script';
+import { kit, recognitionLang } from './lang';
 import { levenshtein } from './text';
-import { getState } from './progress';
 
 type SR = {
   lang: string;
@@ -38,7 +37,8 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
     active?.abort();
     const r = new Ctor();
     active = r;
-    r.lang = langOverride ?? getState().settings.recognitionLang;
+    r.lang = langOverride ?? recognitionLang();
+    const toRoman = kit().romanize;
     r.interimResults = true;
     r.maxAlternatives = 5;
     r.continuous = false;
@@ -58,7 +58,7 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
       active = null;
       retried = true;
       if (e.error === 'no-speech' || e.error === 'aborted') resolve({ alternatives: [], raw: [] });
-      // Device can't do Punjabi? Hindi recognition hears Punjabi sounds well enough.
+      // Device can't do this language? Hindi recognition hears Punjabi/Marathi/Bengali sounds well enough.
       else if (e.error === 'language-not-supported' && r.lang !== 'hi-IN') listenOnce(onInterim, 'hi-IN').then(resolve, reject);
       else reject(new Error(e.error));
     };
@@ -83,7 +83,7 @@ export function stopListening() {
 // ---------------- scoring ----------------
 
 /** Collapse a romanized word to how it sounds. */
-export function soundKey(w: string): string {
+export function soundKey(w: string, lang = 'pa'): string {
   let k = w
     .toLowerCase()
     .normalize('NFD')
@@ -110,6 +110,8 @@ export function soundKey(w: string): string {
     .replace(/(.)\1+/g, '$1')
     .replace(/([aeiou])n$/g, '$1') // final nasal
     .replace(/h/g, ''); // h is mostly tone in Punjabi and often dropped
+  // Bengali: v and b are one sound, and the inherent vowel wobbles between "o" and "a" (kemon / keman).
+  if (lang === 'bn') k = k.replace(/v/g, 'b').replace(/o/g, 'a');
   return k;
 }
 
@@ -133,11 +135,13 @@ const words = (s: string) => s.replace(/[?!.,;:…"()]/g, ' ').split(/\s+/).filt
 function scoreOne(target: string, heard: string): Score {
   const tw = words(target);
   const hw = words(heard);
-  const tk = tw.map(soundKey);
-  // Second spelling of each target word, the way a Punjabi recognizer would write it (college -> kaalaj).
-  const tk2 = tw.map((w) => soundKey(romanizeGurmukhi(romanToGurmukhi(w))));
+  const k = kit();
+  const key = (w: string) => soundKey(w, k.id);
+  const tk = tw.map(key);
+  // Second spelling of each target word, the way the recognizer would write it (college -> kaalaj).
+  const tk2 = tw.map((w) => key(k.romanize(k.toNative(w))));
   const simT = (k: number, h: string) => Math.max(sim(tk[k], h), sim(tk2[k], h));
-  const hk = hw.map(soundKey);
+  const hk = hw.map(key);
   const n = tk.length;
   const m = hk.length;
   // dp[i][j] = best total similarity aligning first i target words with first j heard words

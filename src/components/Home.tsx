@@ -84,7 +84,7 @@ export function Home({ course, onStart, onReview, onSettings }: { course: Course
           </div>
         </section>
       ))}
-      <p className="footnote">More units and Marathi are on the way.</p>
+      <p className="footnote">More units and languages are on the way.</p>
     </div>
   );
 }

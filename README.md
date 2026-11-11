@@ -1,6 +1,6 @@
-# Boli: learn Punjabi (and more Indian languages)
+# Boli: learn Punjabi and Marathi (Bengali next)
 
-Free and open source (MIT). Everything you see is in English letters: no Gurmukhi or Devanagari.
+Free and open source (MIT). Everything you see is in English letters: no Gurmukhi, Devanagari or Bengali script. Pick the language at the top of the Learn tab (or in Settings).
 
 A personal, Duolingo-style app for casual conversational Punjabi in romanized text.
 Installable web app (iPhone, iPad, Mac, Windows), works offline after the first visit.
@@ -30,7 +30,11 @@ to get an https link; then on iPhone open it in Safari, Share → Add to Home Sc
 ## What's inside
 - `src/languages/punjabi/course.ts`: all lessons (5 units, 12 lessons, 48 phrases). Each phrase has romanized text,
   English, accepted spelling variants, word breakdown, tips, and Gurmukhi (used for speech).
-- `src/languages/marathi/course.ts`: placeholder. Fill it in the same format and set `available: true`.
+- `src/languages/marathi/`: Marathi course (6 units, 14 lessons, 56 phrases), `handbook.ts` (21 sections), `dialogues.ts`
+  (12 conversations), and `words.ts` (romanized word → Devanagari, used only for the voice and speech checking).
+- `src/languages/bengali/`: placeholder until the Bengali course is ready.
+- `src/engine/lang.ts`: one "kit" per language (voice code, speech-recognition language, script conversion).
+  `src/engine/indic.ts`: romanized ↔ Devanagari / Bengali conversion. Adding a language = a course folder + a kit entry.
 - Hindi comparisons: each phrase has `hi` (Hindi sentence) and `hiWords` (words that differ). Lessons show each
   word pair once, with rotating wording, plus occasional pattern tips (`hiPatterns`). Phrasebook has a cheat sheet.
 - `src/engine/listen.ts`: speech recognition + sound-based scoring. `src/engine/script.ts`: converts between English letters and

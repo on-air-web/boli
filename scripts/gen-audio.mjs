@@ -1,11 +1,15 @@
-// Generates natural Punjabi audio for every line in scripts/texts.json using Microsoft Azure Speech
+// Generates natural audio (Punjabi, Marathi, Bengali) for every line in scripts/texts.json using Microsoft Azure Speech
 // (neural voices; the free tier covers this easily). Only missing files are made, so re-runs are cheap.
-// Needs env AZURE_SPEECH_KEY and AZURE_SPEECH_REGION (e.g. centralindia). Optional VOICE.
+// Needs env AZURE_SPEECH_KEY and AZURE_SPEECH_REGION (e.g. centralindia). Optional VOICE_PA / VOICE_MR / VOICE_BN.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 
 const KEY = process.env.AZURE_SPEECH_KEY;
 const REGION = process.env.AZURE_SPEECH_REGION;
-const VOICE = process.env.VOICE || 'pa-IN-VaaniNeural';
+const VOICES = {
+  pa: process.env.VOICE_PA || process.env.VOICE || 'pa-IN-VaaniNeural',
+  mr: process.env.VOICE_MR || 'mr-IN-AarohiNeural',
+  bn: process.env.VOICE_BN || 'bn-IN-TanishaaNeural',
+};
 if (!KEY || !REGION) {
   console.error('Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION');
   process.exit(1);
@@ -15,10 +19,11 @@ const texts = JSON.parse(readFileSync(new URL('./texts.json', import.meta.url), 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 let made = 0;
-for (const { key, text } of texts) {
+for (const { key, text, lang = 'pa' } of texts) {
+  const VOICE = VOICES[lang] ?? VOICES.pa;
   const file = new URL(`${key}.mp3`, dir);
   if (existsSync(file)) continue;
-  const ssml = `<speak version="1.0" xml:lang="pa-IN"><voice name="${VOICE}"><prosody rate="-8%">${esc(text)}</prosody></voice></speak>`;
+  const ssml = `<speak version="1.0" xml:lang="${VOICE.slice(0, 5)}"><voice name="${VOICE}"><prosody rate="-8%">${esc(text)}</prosody></voice></speak>`;
   for (let attempt = 0; attempt < 4; attempt++) {
     const res = await fetch(`https://${REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: 'POST',
@@ -44,5 +49,5 @@ for (const { key, text } of texts) {
   }
 }
 const keys = readdirSync(dir).filter((f) => f.endsWith('.mp3')).map((f) => f.slice(0, -4)).sort();
-writeFileSync(new URL('manifest.json', dir), JSON.stringify({ voice: VOICE, keys }));
+writeFileSync(new URL('manifest.json', dir), JSON.stringify({ voices: VOICES, keys }));
 console.log(`Made ${made} new clips, ${keys.length} total.`);
