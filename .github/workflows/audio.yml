@@ -41,8 +41,10 @@ jobs:
       - name: Install the voice model
         if: steps.check.outputs.missing != '0'
         run: |
-          pip install --index-url https://download.pytorch.org/whl/cpu torch
           pip install git+https://github.com/huggingface/parler-tts.git soundfile
+          # torch and torchaudio must match, or torchaudio's library fails to load
+          pip install --force-reinstall --no-deps --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchaudio==2.5.1
+          python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__)"
       - uses: actions/cache@v4
         if: steps.check.outputs.missing != '0'
         with:
