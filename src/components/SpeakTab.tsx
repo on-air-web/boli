@@ -88,7 +88,7 @@ function Drill({ title, items, onExit, languageId }: { title: string; items: Phr
   if (!p) {
     const avg = Math.round(scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length));
     return (
-      <div className="done overlay">
+      <div className="finish-screen overlay">
         <div className="done-emoji">🎤</div>
         <h1>Nice speaking!</h1>
         <div className="done-stats">

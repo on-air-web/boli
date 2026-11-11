@@ -63,17 +63,15 @@ export function Home({ course, onStart, onReview, onSettings }: { course: Course
             {u.lessons.map((l, i) => {
               const idx = lessons.indexOf(l);
               const done = !!lp.completed[l.id];
-              const locked = firstOpen !== -1 && idx > firstOpen;
               const current = idx === firstOpen;
               return (
                 <button
                   key={l.id}
-                  className={`node ${done ? 'done' : ''} ${current ? 'current' : ''} ${locked ? 'locked' : ''}`}
+                  className={`node ${done ? 'done' : ''} ${current ? 'current' : ''}`}
                   style={{ marginLeft: `${[0, 34, 0, -34][i % 4]}%` }}
-                  disabled={locked}
                   onClick={() => onStart(l.id)}
                 >
-                  <span className="node-dot">{done ? '✓' : locked ? '🔒' : i + 1}</span>
+                  <span className="node-dot">{done ? '✓' : i + 1}</span>
                   <span className="node-label">
                     {l.title}
                     {done && lp.completed[l.id] > 1 ? ` ×${lp.completed[l.id]}` : ''}

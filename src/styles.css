@@ -135,7 +135,7 @@ h1, h2, h3 { margin: 0; }
 .feedback.correct .btn { background: var(--green); box-shadow: 0 4px 0 #237546; }
 .feedback.wrong .btn { background: var(--red); box-shadow: 0 4px 0 #a83434; }
 
-.done { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 22px; padding: 24px; text-align: center; }
+.finish-screen { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 22px; padding: 24px; text-align: center; }
 .done-emoji { font-size: 4.5rem; }
 .done-stats { display: flex; gap: 12px; width: 100%; }
 .done-stats div { flex: 1; border: 2px solid var(--line); border-radius: var(--radius); padding: 14px 6px; display: flex; flex-direction: column; background: var(--card); }
@@ -275,5 +275,5 @@ h1, h2, h3 { margin: 0; }
 .sheet .big { font-size: 1.35rem; }
 .overlay { position: fixed; inset: 0; z-index: 10; background: var(--bg); overflow-y: auto; max-width: none; }
 .overlay > * { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; }
-.done.overlay { max-width: none; }
+.finish-screen.overlay { max-width: none; }
 .feedback.correct .btn.btn-secondary, .feedback.wrong .btn.btn-secondary { background: var(--card); color: var(--ink); box-shadow: 0 4px 0 var(--line); }
