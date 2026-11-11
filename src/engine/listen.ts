@@ -4,6 +4,7 @@
 
 import { kit, recognitionLang } from './lang';
 import { levenshtein } from './text';
+import { actions } from './progress';
 
 type SR = {
   lang: string;
@@ -59,7 +60,12 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
       retried = true;
       if (e.error === 'no-speech' || e.error === 'aborted') resolve({ alternatives: [], raw: [] });
       // Device can't do this language? Hindi recognition hears Punjabi/Marathi/Bengali sounds well enough.
-      else if (e.error === 'language-not-supported' && r.lang !== 'hi-IN') listenOnce(onInterim, 'hi-IN').then(resolve, reject);
+      // iPhone reports an unsupported language as "service-not-allowed" (not "language-not-supported"),
+      // even when the microphone is allowed, so treat both the same and remember Hindi for next time.
+      else if ((e.error === 'language-not-supported' || e.error === 'service-not-allowed') && r.lang !== 'hi-IN') {
+        actions.updateSettings({ recognitionLang: 'hi-IN' });
+        listenOnce(onInterim, 'hi-IN').then(resolve, reject);
+      }
       else reject(new Error(e.error));
     };
     r.onend = () => {

@@ -57,8 +57,10 @@ export function SpeakCheck({ accepted, onResult, compact = false }: { accepted: 
       const msg = (e as Error).message;
       setState('error');
       setError(
-        msg === 'not-allowed' || msg === 'service-not-allowed'
-          ? 'Microphone access is blocked. Allow the microphone for this site in your browser settings (on iPhone: open the app in Safari).'
+        msg === 'service-not-allowed'
+          ? 'Speech recognition is turned off on this device. On iPhone: Settings → General → Keyboard → turn on Enable Dictation (and make sure Siri is allowed), then try again.'
+          : msg === 'not-allowed'
+            ? 'The microphone was refused. On iPhone: tap aA in the Safari address bar → Website Settings → Microphone → Allow (and check Settings → Safari → Microphone). Also check Settings → Privacy & Security → Speech Recognition → Safari is on.'
           : msg === 'network'
             ? 'Speech checking needs an internet connection.'
             : `Couldn't listen (${msg}). Try again.`
