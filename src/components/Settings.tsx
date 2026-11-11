@@ -1,6 +1,6 @@
 import { actions, useAppState } from '../engine/progress';
 import { useState } from 'react';
-import { lastVoiceUsed, speakPunjabi, voiceInfo } from '../engine/speech';
+import { lastVoiceUsed, SETTINGS_TEST_PHRASE, speakPunjabi, voiceInfo } from '../engine/speech';
 
 export function Settings() {
   const [used, setUsed] = useState('');
@@ -31,7 +31,7 @@ export function Settings() {
         <button
           className="btn btn-secondary"
           onClick={async () => {
-            await speakPunjabi(undefined, 'Sat Sri Akal ji, ki haal aa? Main Punjabi sikh reha haan.');
+            await speakPunjabi(undefined, SETTINGS_TEST_PHRASE);
             setUsed(lastVoiceUsed());
           }}
         >

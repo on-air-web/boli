@@ -1,0 +1,38 @@
+name: Generate Punjabi audio
+
+# Makes natural-voice audio for any new or changed Punjabi text and commits it.
+# Needs repository secrets AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.
+on:
+  push:
+    branches: [main]
+    paths: ['src/languages/**', 'src/engine/script.ts', 'scripts/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: audio
+  cancel-in-progress: false
+
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run audio:texts
+      - run: npm run audio:generate
+        env:
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+      - name: Commit new audio
+        run: |
+          git config user.name "boli-audio-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/audio
+          git diff --cached --quiet || (git commit -m "Update Punjabi audio" && git push)
