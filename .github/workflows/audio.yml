@@ -4,9 +4,7 @@ name: Record natural audio
 # model and commits it. Free: runs on GitHub's servers. The model is gated on Hugging Face, so it needs a free
 # Hugging Face read token (after accepting the model's terms) saved as the repo secret HF_TOKEN.
 on:
-  push:
-    branches: [main]
-    paths: ['src/languages/**', 'src/engine/script.ts', 'scripts/**', '.github/workflows/audio.yml']
+  # Paused 2026-11-11: the first Parler-TTS clips sounded worse than the Google online voice. Run by hand to try again.
   workflow_dispatch:
 
 permissions:

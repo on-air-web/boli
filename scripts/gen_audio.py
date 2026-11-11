@@ -82,14 +82,27 @@ def main():
                 break
             tried += 1
             desc = descs.get(t.get("lang", "pa"), descs["pa"])
-            prompt = tok(t["text"], return_tensors="pt")
-            wav = synth(desc, prompt, False)
-            if wav.size < model.config.sampling_rate // 10:  # under 0.1 s: the model gave up; try once more with sampling
-                wav = synth(desc, prompt, True)
-            if wav.size < model.config.sampling_rate // 10:
+            # The model rambles on after a line with no closing punctuation, so always end the sentence.
+            text = t["text"].strip()
+            if text[-1] not in ".?!।॥":
+                text += "."
+            prompt = tok(text, return_tensors="pt")
+            sr = model.config.sampling_rate
+            longest = (0.12 * len(text) + 1.0) * sr  # longer than this means extra babble after the phrase
+            best = None
+            for attempt in range(3):
+                wav = synth(desc, prompt, attempt > 0)
+                if wav.size < sr // 10:  # under 0.1 s: nothing useful
+                    continue
+                if best is None or wav.size < best.size:
+                    best = wav
+                if wav.size <= longest:
+                    break
+            if best is None:
                 failed += 1
-                print(f"[skip] no audio for {t['text']}", flush=True)
+                print(f"[skip] no audio for {text}", flush=True)
                 continue
+            wav = best[: int(longest)]
             with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
                 sf.write(tmp.name, wav, model.config.sampling_rate)
                 subprocess.run(
