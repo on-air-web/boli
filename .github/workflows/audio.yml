@@ -42,6 +42,7 @@ jobs:
       - name: Install the voice model
         if: steps.check.outputs.missing != '0'
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install git+https://github.com/huggingface/parler-tts.git soundfile sentencepiece
           pip install --upgrade --no-deps "protobuf>=5.28"
           # torch and torchaudio must match, or torchaudio's library fails to load
