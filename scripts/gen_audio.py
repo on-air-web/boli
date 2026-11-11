@@ -23,7 +23,7 @@ def describe(speaker):
         "The recording is of very high quality, with the voice sounding clear and very close up, with no background noise."
     )
 BUDGET_MIN = float(os.environ.get("BUDGET_MINUTES", "300"))
-COMMIT_EVERY = int(os.environ.get("COMMIT_EVERY", "40"))
+COMMIT_EVERY = int(os.environ.get("COMMIT_EVERY", "20"))
 COMMIT = os.environ.get("COMMIT", "0") == "1"
 
 
@@ -52,7 +52,7 @@ def main():
         write_manifest()
         return 0
 
-    import torch, soundfile as sf
+    import numpy as np, torch, soundfile as sf
     from parler_tts import ParlerTTSForConditionalGeneration
     from transformers import AutoTokenizer
 
@@ -62,38 +62,52 @@ def main():
     desc_tok = AutoTokenizer.from_pretrained(model.config.text_encoder._name_or_path)
     descs = {lang: desc_tok(describe(sp), return_tensors="pt") for lang, sp in SPEAKERS.items()}
 
-    start = time.time()
-    made = 0
-    for t in todo:
-        if (time.time() - start) / 60 > BUDGET_MIN:
-            print("Time budget reached; the next run continues.", flush=True)
-            break
-        desc = descs.get(t.get("lang", "pa"), descs["pa"])
-        prompt = tok(t["text"], return_tensors="pt")
+    def synth(desc, prompt, sample):
         with torch.no_grad():
             out = model.generate(
                 input_ids=desc.input_ids,
                 attention_mask=desc.attention_mask,
                 prompt_input_ids=prompt.input_ids,
                 prompt_attention_mask=prompt.attention_mask,
+                **({"do_sample": True, "temperature": 0.8} if sample else {}),
             )
-        wav = out.cpu().numpy().squeeze()
-        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-            sf.write(tmp.name, wav, model.config.sampling_rate)
-            subprocess.run(
-                ["ffmpeg", "-loglevel", "error", "-y", "-i", tmp.name, "-af", "silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse",
-                 "-ac", "1", "-b:a", "48k", str(AUDIO / f"{t['key']}.mp3")],
-                check=True,
-            )
-        made += 1
-        print(f"[{made}/{len(todo)}] {t['text']}", flush=True)
-        if made % COMMIT_EVERY == 0:
-            write_manifest()
-            commit(f"Add Punjabi audio ({made} new clips)")
-    total = write_manifest()
-    commit(f"Add Punjabi audio ({made} new clips)")
-    print(f"Made {made} clips; {total} in total.", flush=True)
-    remaining = len(todo) - made
+        return np.atleast_1d(out.cpu().numpy().squeeze())
+
+    start = time.time()
+    made = failed = tried = 0
+    try:
+        for t in todo:
+            if (time.time() - start) / 60 > BUDGET_MIN:
+                print("Time budget reached; the next run continues.", flush=True)
+                break
+            tried += 1
+            desc = descs.get(t.get("lang", "pa"), descs["pa"])
+            prompt = tok(t["text"], return_tensors="pt")
+            wav = synth(desc, prompt, False)
+            if wav.size < model.config.sampling_rate // 10:  # under 0.1 s: the model gave up; try once more with sampling
+                wav = synth(desc, prompt, True)
+            if wav.size < model.config.sampling_rate // 10:
+                failed += 1
+                print(f"[skip] no audio for {t['text']}", flush=True)
+                continue
+            with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+                sf.write(tmp.name, wav, model.config.sampling_rate)
+                subprocess.run(
+                    ["ffmpeg", "-loglevel", "error", "-y", "-i", tmp.name, "-af", "silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse",
+                     "-ac", "1", "-b:a", "48k", str(AUDIO / f"{t['key']}.mp3")],
+                    check=True,
+                )
+            made += 1
+            print(f"[{made}/{len(todo)}] {t['text']}", flush=True)
+            if made % COMMIT_EVERY == 0:
+                write_manifest()
+                commit(f"Add natural audio ({made} new clips)")
+    finally:
+        # Save whatever was recorded, even if something crashed
+        total = write_manifest()
+        commit(f"Add natural audio ({made} new clips)")
+        print(f"Made {made} clips, skipped {failed}; {total} in total.", flush=True)
+    remaining = len(todo) - tried
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"remaining={remaining}\n")
