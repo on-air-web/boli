@@ -1,7 +1,8 @@
 name: Record natural audio
 
 # Records natural-voice audio for new lines (Punjabi, Marathi, Bengali) with the open-source AI4Bharat Indic Parler-TTS
-# model and commits it. Free: runs on GitHub's servers, no account or key needed.
+# model and commits it. Free: runs on GitHub's servers. The model is gated on Hugging Face, so it needs a free
+# Hugging Face read token (after accepting the model's terms) saved as the repo secret HF_TOKEN.
 on:
   push:
     branches: [main]
@@ -55,8 +56,10 @@ jobs:
         if: steps.check.outputs.missing != '0'
         env:
           COMMIT: '1'
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           BUDGET_MINUTES: '300'
         run: |
+          if [ -z "$HF_TOKEN" ]; then echo "::error::Add a Hugging Face token as the HF_TOKEN repo secret (see the comment at the top of this file)"; exit 1; fi
           git config user.name "boli-audio-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python scripts/gen_audio.py
