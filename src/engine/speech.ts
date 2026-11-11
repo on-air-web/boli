@@ -6,7 +6,7 @@ import { getCourse } from '../languages';
 
 export const SETTINGS_TEST_PHRASE = 'Sat Sri Akal ji, ki haal aa? Main Punjabi sikh reha haan.';
 
-// Pre-recorded natural-voice clips (made by scripts/gen-audio.mjs). Loaded once; missing = none yet.
+// Pre-recorded natural-voice clips (made by scripts/gen_audio.py). Loaded once; missing = none yet.
 // Keys are made from native script, so Punjabi, Marathi and Bengali clips never collide.
 let recorded: Set<string> | null = null;
 let recordedVoices: Record<string, string> = {};
