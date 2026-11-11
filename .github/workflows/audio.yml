@@ -42,7 +42,8 @@ jobs:
       - name: Install the voice model
         if: steps.check.outputs.missing != '0'
         run: |
-          pip install git+https://github.com/huggingface/parler-tts.git soundfile sentencepiece "protobuf>=5.28"
+          pip install git+https://github.com/huggingface/parler-tts.git soundfile sentencepiece
+          pip install --upgrade --no-deps "protobuf>=5.28"
           # torch and torchaudio must match, or torchaudio's library fails to load
           pip install --force-reinstall --no-deps --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchaudio==2.5.1
           python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__)"
