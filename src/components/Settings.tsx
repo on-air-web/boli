@@ -1,7 +1,9 @@
 import { actions, useAppState } from '../engine/progress';
-import { speakPunjabi, voiceInfo } from '../engine/speech';
+import { useState } from 'react';
+import { lastVoiceUsed, speakPunjabi, voiceInfo } from '../engine/speech';
 
 export function Settings() {
+  const [used, setUsed] = useState('');
   const s = useAppState();
   const st = s.settings;
   return (
@@ -26,10 +28,16 @@ export function Settings() {
           <span>Speech speed</span>
           <input type="range" min={0.5} max={1.1} step={0.05} value={st.speechRate} onChange={(e) => actions.updateSettings({ speechRate: Number(e.target.value) })} />
         </label>
-        <button className="btn btn-secondary" onClick={() => speakPunjabi('ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਕੀ ਹਾਲ ਹੈ?', 'Sat Sri Akal, ki haal hai?')}>
+        <button
+          className="btn btn-secondary"
+          onClick={async () => {
+            await speakPunjabi(undefined, 'Sat Sri Akal ji, ki haal aa? Main Punjabi sikh reha haan.');
+            setUsed(lastVoiceUsed());
+          }}
+        >
           🔊 Test voice
         </button>
-        <p className="muted small">Voice: {voiceInfo()}.</p>
+        <p className="muted small">Voice: {voiceInfo()}.{used && <> Just played with: <b>{used}</b>.</>}</p>
         <label className="row">
           <span>Speaking exercises in lessons</span>
           <input type="checkbox" checked={st.speakInLessons} onChange={(e) => actions.updateSettings({ speakInLessons: e.target.checked })} />

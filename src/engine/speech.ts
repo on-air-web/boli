@@ -6,7 +6,7 @@ import { gurmukhiToDevanagari, romanToGurmukhi } from './script';
 // 1. Online Punjabi voice (Google Translate audio) when online and allowed in settings
 // 2. A Punjabi voice installed on the device (pa-IN)
 // 3. A Hindi voice reading the phrase converted to Devanagari (very close sounds; available on iOS, Mac, Windows, Android)
-// 4. Any voice reading the romanized text
+// (The romanized text is never read directly: an English-style voice would mispronounce it.)
 
 let voices: SpeechSynthesisVoice[] = [];
 const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
@@ -19,8 +19,6 @@ synth?.addEventListener?.('voiceschanged', refreshVoices);
 const findVoice = (prefix: string) => voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
 
 export const speechSupported = () => !!synth || typeof Audio !== 'undefined';
-
-let currentAudio: HTMLAudioElement | null = null;
 
 function speakDevice(text: string, lang: string, voice?: SpeechSynthesisVoice, rate = 0.85): Promise<void> {
   return new Promise((resolve) => {
@@ -38,49 +36,76 @@ function speakDevice(text: string, lang: string, voice?: SpeechSynthesisVoice, r
   });
 }
 
+// One shared <audio> element. Safari only lets a page play sound after a tap; once this element has
+// played during a tap it stays "unlocked", so later automatic playback (lesson intros, chats) works.
+const audio: HTMLAudioElement | null = typeof Audio !== 'undefined' ? new Audio() : null;
+const SILENCE = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTRUoAWgBgkOAGbZHBgG1OF6zM82DWbZaUmMBptgQhGjsyYqc9ae9XFz280948NMBWInljyzsNRFLPWdnZGWrddDsjK1unuSrVN9jJsK8KuQtQCtMBjCEtImISdNKJOopIpBFpNSMbIHCSRpRR5iakjTiyzLhchUUBwCgyKiweBv/7UsQbg8isVNoMPMjAAAA0gAAABEVFGmgqK////9bP/6XCykxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+let unlocked = false;
+function unlock() {
+  if (unlocked || !audio) return;
+  unlocked = true;
+  audio.src = SILENCE;
+  audio.play().catch(() => (unlocked = false));
+  // Wake up the device voices too (Safari needs a first utterance inside a tap).
+  if (synth) synth.speak(new SpeechSynthesisUtterance(''));
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', unlock, { capture: true });
+  window.addEventListener('keydown', unlock, { capture: true });
+}
+
+let lastVoice = '';
+export const lastVoiceUsed = () => lastVoice;
+
 function speakOnline(script: string, rate: number): Promise<boolean> {
   return new Promise((resolve) => {
-    if (!navigator.onLine) return resolve(false);
-    currentAudio?.pause();
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pa&ttsspeed=${rate < 0.8 ? 0.24 : 1}&q=${encodeURIComponent(script)}`;
-    const a = new Audio(url);
-    currentAudio = a;
-    a.playbackRate = Math.max(0.7, Math.min(1, rate + 0.1));
+    if (!navigator.onLine || !audio) return resolve(false);
+    audio.pause();
+    // The page sends no Referer (see index.html), which Google's voice endpoint requires.
+    audio.src = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=pa&total=1&idx=0&textlen=${script.length}&q=${encodeURIComponent(script)}`;
+    audio.playbackRate = Math.max(0.6, Math.min(1, rate + 0.1));
     let done = false;
     const finish = (ok: boolean) => {
-      if (!done) {
-        done = true;
-        resolve(ok);
-      }
+      if (done) return;
+      done = true;
+      audio.onended = audio.onerror = null;
+      resolve(ok);
     };
-    a.onended = () => finish(true);
-    a.onerror = () => finish(false);
-    a.play().catch(() => finish(false));
-    setTimeout(() => a.readyState === 0 && (a.pause(), finish(false)), 4000);
+    audio.onended = () => finish(true);
+    audio.onerror = () => finish(false);
+    audio
+      .play()
+      .then(() => (lastVoice = 'Online Punjabi voice'))
+      .catch(() => finish(false));
+    setTimeout(() => audio.readyState === 0 && (audio.pause(), finish(false)), 5000);
   });
 }
 
-/** Speak Punjabi text. `script` (Gurmukhi) gives the best pronunciation; `roman` is the fallback. */
+/** Speak Punjabi text. `script` (Gurmukhi) gives the best pronunciation; `roman` is converted when missing. */
 export async function speakPunjabi(script: string | undefined, roman: string, rateOverride?: number) {
   const { sound, speechRate, onlineVoice } = getState().settings;
   if (!sound) return;
   const rate = rateOverride ?? speechRate;
-  // No hand-written script? Convert the romanized text so the Punjabi voice can read it.
+  // Never read the English letters aloud: that sounds like English. Always speak real Punjabi/Hindi script.
   script = script ?? romanToGurmukhi(roman);
-  if (script && onlineVoice && (await speakOnline(script, rate))) return;
+  if (onlineVoice && (await speakOnline(script, rate))) return;
   refreshVoices();
   const pa = findVoice('pa');
-  if (script && pa) return speakDevice(script, 'pa-IN', pa, rate);
+  if (pa) {
+    lastVoice = `Device Punjabi voice (${pa.name})`;
+    return speakDevice(script, 'pa-IN', pa, rate);
+  }
+  // Hindi voices read Punjabi in Devanagari letters almost perfectly (same sounds, same alphabet order).
   const hi = findVoice('hi');
-  if (script && hi) return speakDevice(gurmukhiToDevanagari(script), 'hi-IN', hi, rate);
-  return speakDevice(roman, hi ? 'hi-IN' : 'en-IN', hi ?? findVoice('en-in'), rate);
+  lastVoice = hi ? `Device Hindi voice (${hi.name})` : 'Device Hindi voice';
+  return speakDevice(gurmukhiToDevanagari(script), 'hi-IN', hi, rate);
 }
 
 export const speakPhrase = (p: Phrase, rate?: number) => speakPunjabi(p.script, p.text, rate);
 
 export function stopSpeaking() {
   synth?.cancel();
-  currentAudio?.pause();
+  audio?.pause();
 }
 
 /** Describe which voice will be used, for the settings screen. */
