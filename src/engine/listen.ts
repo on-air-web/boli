@@ -5,6 +5,7 @@
 import { kit, recognitionLang } from './lang';
 import { levenshtein } from './text';
 import { actions } from './progress';
+import { stopSpeaking } from './speech';
 
 type SR = {
   lang: string;
@@ -36,6 +37,10 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
   return new Promise((resolve, reject) => {
     if (!Ctor) return reject(new Error('unsupported'));
     active?.abort();
+    // iPhone: audio that just played (the phrase read aloud) leaves Safari in "playback only" mode, so the next
+    // recognition hears silence. Stop any speech and switch the audio session to recording while we listen.
+    stopSpeaking();
+    setAudioSession('play-and-record');
     const r = new Ctor();
     active = r;
     r.lang = langOverride ?? recognitionLang();
@@ -57,6 +62,7 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
     let retried = false;
     r.onerror = (e) => {
       active = null;
+      setAudioSession('auto');
       retried = true;
       if (e.error === 'no-speech' || e.error === 'aborted') resolve({ alternatives: [], raw: [] });
       // Device can't do this language? Hindi recognition hears Punjabi/Marathi/Bengali sounds well enough.
@@ -70,6 +76,7 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
     };
     r.onend = () => {
       active = null;
+      setAudioSession('auto');
       if (retried) return;
       const raw = finalAlts.length ? finalAlts : lastInterim ? [lastInterim] : [];
       resolve({ raw, alternatives: raw.map(toRoman) });
@@ -80,6 +87,17 @@ export function listenOnce(onInterim?: (text: string) => void, langOverride?: st
       reject(err as Error);
     }
   });
+}
+
+/** Safari 16.4+ (iPhone) lets a page choose its audio session; other browsers ignore this. */
+function setAudioSession(type: 'play-and-record' | 'auto') {
+  const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+  if (!session) return;
+  try {
+    session.type = type;
+  } catch {
+    /* not supported */
+  }
 }
 
 export function stopListening() {
