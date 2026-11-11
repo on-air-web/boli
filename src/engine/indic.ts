@@ -14,7 +14,7 @@ const HAL = '्';
 // ---------------------------------------------------------------- roman -> native
 
 const R_CONS: [string, string][] = [
-  ['cch', 'च्छ'], ['chh', 'छ'], ['kh', 'ख'], ['gh', 'घ'], ['ch', 'च'], ['jh', 'झ'], ['th', 'थ'], ['dh', 'ध'], ['ph', 'फ'], ['bh', 'भ'], ['sh', 'श'],
+  ['chchh', 'च्छ'], ['cch', 'च्छ'], ['chh', 'छ'], ['kh', 'ख'], ['gh', 'घ'], ['ch', 'च'], ['jh', 'झ'], ['th', 'थ'], ['dh', 'ध'], ['ph', 'फ'], ['bh', 'भ'], ['sh', 'श'],
   ['k', 'क'], ['g', 'ग'], ['j', 'ज'], ['t', 'त'], ['d', 'द'], ['n', 'न'], ['p', 'प'], ['b', 'ब'], ['m', 'म'], ['y', 'य'],
   ['r', 'र'], ['l', 'ल'], ['v', 'व'], ['w', 'व'], ['s', 'स'], ['h', 'ह'], ['z', 'झ'], ['f', 'फ'], ['q', 'क'], ['c', 'क'], ['x', 'क्स'],
 ];
@@ -54,6 +54,9 @@ function romanWord(w: string, lang: IndicLang): string {
         // Bengali has no short/long a: "a" is always আ. Its inherent vowel sounds like "o",
         // so a medial "o" before a consonant is usually just the inherent vowel (kemon -> কেমন).
         if (r === 'a') [m, indep] = ['ा', 'आ'];
+        // "ai" / "au" are two sounds in Bengali (jai = যাই, bou = বউ), not one long vowel.
+        if (r === 'ai') [m, indep] = ['ाइ', 'आइ'];
+        if (r === 'au') [m, indep] = ['ाउ', 'आउ'];
         if (r === 'o' && prev === 'cons' && !atEnd && syllable > 0 && /^[^aeiou]/.test(w.slice(i + 1))) m = '';
       }
       out += prev === 'cons' ? m : indep;
@@ -70,7 +73,7 @@ function romanWord(w: string, lang: IndicLang): string {
         if (r === 'z') g = 'ज';
         else if (r === 'v') g = 'भ';
         else if (r === 'w') g = 'ब';
-        else if (r === 'y' && prev !== 'start') g = 'य़';
+        else if (r === 'y' && prev === 'vowel') g = 'य़'; // after a consonant it is the ya-phala (byapar = ব্যাপার)
       }
       const doubled = w.startsWith(r, i + r.length);
       const finalCluster = !/[aeiou]/.test(w.slice(i + r.length)); // mast, dost, fakt
@@ -111,7 +114,8 @@ export function devaToBengali(s: string): string {
 
 /** Bengali script -> Devanagari. */
 export function bengaliToDeva(s: string): string {
-  return [...s.normalize('NFD')]
+  // NFC, not NFD: Bengali ো / ৌ would otherwise split into two vowel signs.
+  return [...s.normalize('NFC')]
     .map((c) => {
       const n = c.charCodeAt(0);
       if (c === 'ৎ') return 'त्';
@@ -151,7 +155,7 @@ const CONS: Record<string, string> = {
   प: 'p', फ: 'ph', ब: 'b', भ: 'bh', म: 'm', य: 'y', र: 'r', ल: 'l', ळ: 'l', व: 'v',
   श: 'sh', ष: 'sh', स: 's', ह: 'h',
 };
-const NUKTA_MAP: Record<string, string> = { k: 'k', kh: 'kh', g: 'g', j: 'z', ph: 'f', d: 'r', dh: 'rh', y: 'y' };
+const NUKTA_MAP: Record<string, string> = { k: 'k', kh: 'kh', g: 'g', j: 'z', ph: 'f', d: 'r', dh: 'rh', y: 'Y' };
 const VOWELS: Record<string, string> = { अ: 'a', आ: 'aa', इ: 'i', ई: 'ee', उ: 'u', ऊ: 'oo', ऋ: 'ri', ए: 'e', ऐ: 'ai', ओ: 'o', औ: 'au', ऑ: 'o', ऍ: 'e' };
 const MATRA: Record<string, string> = { 'ा': 'aa', 'ि': 'i', 'ी': 'ee', 'ु': 'u', 'ू': 'oo', 'ृ': 'ri', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ॉ': 'o', 'ॅ': 'e' };
 const LABIAL = new Set(['m', 'p', 'b', 'bh', 'ph']);
@@ -160,7 +164,8 @@ interface Syl { c: string; v: string; inherent: boolean; nasal: boolean }
 
 function romanizeDevaWord(w: string, lang: IndicLang): string {
   const syls: Syl[] = [];
-  for (const ch of w.normalize('NFD')) {
+  // Split nukta letters (ज़ -> ज + ़) but keep vowel signs whole.
+  for (const ch of w.normalize('NFC').replace(/[\u0958-\u095F]/g, (c) => c.normalize('NFD'))) {
     const last = syls[syls.length - 1];
     if (CONS[ch] !== undefined) syls.push({ c: CONS[ch], v: 'a', inherent: true, nasal: false });
     else if (ch === '़' && last) last.c = NUKTA_MAP[last.c] ?? last.c;
@@ -206,6 +211,9 @@ function romanizeDevaWord(w: string, lang: IndicLang): string {
       else nasal = 'n';
     }
     let c = s.c;
+    // Bengali য is a "j" sound (jabo, jodi) except right after another consonant (byapar); য় is "y".
+    if (lang === 'bn' && c === 'y' && (i === 0 || syls[i - 1].v)) c = 'j';
+    if (c === 'Y') c = 'y';
     if (lang === 'mr' && c === 'jh') c = 'z'; // Marathi झ sounds "z": zala, maza
     if (lang === 'bn' && c === 'v') c = 'b'; // Bengali has no v sound
     out += c + v + nasal;
@@ -218,7 +226,7 @@ export function romanizeIndic(s: string, lang: IndicLang, friendly?: (w: string)
   if (hasBengali(s)) s = bengaliToDeva(s);
   const parts = s.split(/(\s+|[?!.,।॥"'()]+)/);
   const r = parts
-    .map((p) => (/[ऀ-ॿ]/.test(p) ? romanizeDevaWord(p, lang) : p.replace(/।/g, '.')))
+    .map((p) => (/[\u0900-\u0963\u0966-\u097F]/.test(p) ? romanizeDevaWord(p, lang) : p.replace(/[।॥]/g, '.')))
     .map((p) => (friendly && /^[a-z]+$/i.test(p) ? friendly(p) : p))
     .join('')
     .replace(/\s+\./g, '.');

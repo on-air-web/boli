@@ -1,4 +1,4 @@
-# Boli: learn Punjabi and Marathi (Bengali next)
+# Boli: learn Punjabi, Marathi and Bengali
 
 Free and open source (MIT). Everything you see is in English letters: no Gurmukhi, Devanagari or Bengali script. Pick the language at the top of the Learn tab (or in Settings).
 
@@ -32,7 +32,8 @@ to get an https link; then on iPhone open it in Safari, Share → Add to Home Sc
   English, accepted spelling variants, word breakdown, tips, and Gurmukhi (used for speech).
 - `src/languages/marathi/`: Marathi course (6 units, 14 lessons, 56 phrases), `handbook.ts` (21 sections), `dialogues.ts`
   (12 conversations), and `words.ts` (romanized word → Devanagari, used only for the voice and speech checking).
-- `src/languages/bengali/`: placeholder until the Bengali course is ready.
+- `src/languages/bengali/`: Bengali (Kolkata Bangla) course, same shape as Marathi: 56 phrases, 21-section Handbook,
+  12 conversations, `words.ts` (romanized word → Bengali script, behind the scenes only).
 - `src/engine/lang.ts`: one "kit" per language (voice code, speech-recognition language, script conversion).
   `src/engine/indic.ts`: romanized ↔ Devanagari / Bengali conversion. Adding a language = a course folder + a kit entry.
 - Hindi comparisons: each phrase has `hi` (Hindi sentence) and `hiWords` (words that differ). Lessons show each
